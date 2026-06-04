@@ -15,6 +15,7 @@ export interface TradingRules {
   maxDailyDrawdown: number;      // % de drawdown journalier max (ex: 3)
   initialCapital: number;        // Capital de départ en $
   checklistItems: ChecklistItem[]; // Étapes de la stratégie
+  customAssets?: string[];
 }
 
 // ── Étape de la check-list ─────────────────────────────────────────────────
@@ -28,6 +29,7 @@ export interface ChecklistItem {
 export interface TradeSession {
   id: string;
   date: string;                  // ISO string
+  closeDate?: string;
   asset: string;                 // Ex: "BTC/USDT", "EUR/USD"
   direction: "LONG" | "SHORT";
   entryPrice: number;

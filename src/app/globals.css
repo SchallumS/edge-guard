@@ -1,2 +1,132 @@
 @import "tailwindcss";
-@config "../../tailwind.config.ts"; /* Ajoute cette ligne pour lier ton fichier de config ! */
+@config "../../tailwind.config.ts"; /* Lien vers ton fichier de config TS */
+
+/* ─── Variables CSS globales ────────────────────────────────────────────── */
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-jetbrains: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ─── Reset & Base ──────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  height: 100%;
+  background-color: #0D1117;
+  color: #E6EDF3;
+}
+
+/* ─── Scrollbar Cyber ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0D1117;
+}
+::-webkit-scrollbar-thumb {
+  background: #21262D;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #30363D;
+}
+
+/* ─── Sélection de texte ────────────────────────────────────────────────── */
+::selection {
+  background-color: #388BFD30;
+  color: #E6EDF3;
+}
+
+/* ─── Classes utilitaires personnalisées ────────────────────────────────── */
+@layer components {
+  /* Carte de base Cyber-Terminal */
+  .card {
+    @apply bg-bg-card border border-border rounded-xl p-6 shadow-card;
+  }
+
+  /* Texte monospace pour chiffres (utilisable directement dans les className React) */
+  .mono {
+    font-family: var(--font-jetbrains), 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Badge de statut */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium tabular-nums;
+    font-family: var(--font-jetbrains), 'Fira Code', monospace;
+  }
+
+  /* Input Cyber */
+  .cyber-input {
+    @apply w-full bg-bg-elevated border border-border rounded-lg px-4 py-3 
+           text-text-primary placeholder-text-muted 
+           focus:outline-none focus:border-border-glow focus:shadow-glow-input
+           transition-all duration-200 text-sm tabular-nums;
+    font-family: var(--font-jetbrains), 'Fira Code', monospace;
+  }
+
+  /* Bouton primaire */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 
+           bg-neon-blue text-bg-primary font-semibold rounded-lg px-6 py-3
+           hover:bg-neon-blue/90 active:scale-95
+           transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  /* Bouton secondaire */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent border border-border text-text-primary font-medium rounded-lg px-6 py-3
+           hover:border-border-active hover:bg-bg-elevated
+           transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Bouton danger */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-neon-red/10 border border-neon-red text-neon-red font-medium rounded-lg px-6 py-3
+           hover:bg-neon-red/20
+           transition-all duration-200;
+  }
+
+  /* Ligne de séparation */
+  .divider {
+    @apply border-t border-border my-6;
+  }
+
+  /* Étiquette de champ */
+  .field-label {
+    @apply block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2;
+  }
+
+  /* Valeur PnL positive */
+  .pnl-positive {
+    @apply text-neon-green tabular-nums;
+    font-family: var(--font-jetbrains), 'Fira Code', monospace;
+  }
+
+  /* Valeur PnL négative */
+  .pnl-negative {
+    @apply text-neon-red tabular-nums;
+    font-family: var(--font-jetbrains), 'Fira Code', monospace;
+  }
+
+  /* Indicateur de point live */
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-neon-green animate-pulse;
+  }
+}
+
+/* ─── Animations PWA standalone ────────────────────────────────────────── */
+@media (display-mode: standalone) {
+  /* Ajouter du padding-top en mode standalone iOS (safe area) */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
