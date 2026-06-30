@@ -16,10 +16,9 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { AlertBanner } from "@/components/ui/AlertBanner";
 import { TradeChecklist } from "@/components/features/TradeChecklist";
-import { rulesStorage, tradesStorage } from "@/lib/storage";
+import api from "@/lib/api"; 
 import {
   validateTrade,
-  generateId,
   formatCurrency,
   formatPercent,
 } from "@/lib/utils";
@@ -28,47 +27,94 @@ import { TradingRules, TradeSession, TradeAlert } from "@/lib/types";
 type Direction = "LONG" | "SHORT";
 
 export default function AvantTradePage() {
-  const [rules, setRules] = useState<TradingRules>(rulesStorage.getDefaults());
+  const [rules, setRules] = useState<TradingRules | null>(null);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [lastTrade, setLastTrade] = useState<TradeSession | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [todayCount, setTodayCount] = useState(0);
+  const [todayPnl, setTodayPnl] = useState(0);
 
-  // ── Nouveaux champs simplifiés ──
   const [asset, setAsset] = useState("");
   const [direction, setDirection] = useState<Direction>("LONG");
-  const [entryPrice, setEntryPrice] = useState(""); // Gardé juste pour l'historique (optionnel)
-  const [riskInput, setRiskInput] = useState("");   // Somme perdue si SL ($)
-  const [rewardInput, setRewardInput] = useState(""); // Somme gagnée si TP ($)
+  const [entryPrice, setEntryPrice] = useState(""); 
+  const [riskInput, setRiskInput] = useState("");   
+  const [rewardInput, setRewardInput] = useState(""); 
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    setRules(rulesStorage.get());
+    const fetchInitialData = async () => {
+      try {
+        const [rulesRes, tradesRes] = await Promise.all([
+          api.get("/rules"),
+          api.get("/trades")
+        ]);
+
+        setRules(rulesRes.data.data);
+
+        const trades = tradesRes.data.data;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let count = 0;
+        let pnl = 0;
+
+        trades.forEach((t: any) => {
+          if (new Date(t.date) >= today) {
+            count++;
+            if (t.status === "win" || t.status === "loss" || t.status === "breakeven") {
+              pnl += (t.pnl || 0);
+            }
+          }
+        });
+
+        setTodayCount(count);
+        setTodayPnl(pnl);
+      } catch (error) {
+        console.error("Erreur lors du chargement des données Avant-Trade:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
-  // ── Calculs en temps réel basés sur les montants du broker ────────
+  // 💡 1. DÉPLACEMENT ICI : On fait les calculs ET le useMemo AVANT le "if (isLoading)"
   const riskAmount = parseFloat(riskInput) || 0;
   const rewardAmount = parseFloat(rewardInput) || 0;
   
-  const riskPercent = rules.initialCapital > 0 
+  // On sécurise avec rules?.initialCapital pour éviter les erreurs pendant le chargement
+  const riskPercent = rules?.initialCapital 
     ? (riskAmount / rules.initialCapital) * 100 
     : 0;
 
   const rrRatio = riskAmount > 0 ? rewardAmount / riskAmount : null;
+  const dailyPnlPercent = rules?.initialCapital ? (todayPnl / rules.initialCapital) * 100 : 0;
 
-  // Alertes de validation
-  const todayCount = tradesStorage.countToday();
-  const todayPnl = tradesStorage.getDailyPnl();
-  const dailyPnlPercent = (todayPnl / rules.initialCapital) * 100;
-
+  // Le hook useMemo est maintenant toujours appelé, respectant la règle de React
   const alerts: TradeAlert[] = useMemo(() => {
-    if (!riskAmount) return [];
+    if (!rules || !riskAmount) return [];
     return validateTrade(
       riskPercent,
       todayCount,
       dailyPnlPercent,
       rules
     );
-  }, [riskPercent, todayCount, dailyPnlPercent, rules]);
+  }, [riskPercent, todayCount, dailyPnlPercent, rules, riskAmount]);
+
+  // 💡 2. L'écran de chargement est placé APRÈS tous les hooks
+  if (isLoading || !rules) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-64">
+          <div className="w-8 h-8 border-2 border-neon-blue border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   // ── Condition de validation ────────────────────────────────────────
   const requiredItems = rules.checklistItems.filter((i) => i.isRequired);
@@ -77,39 +123,44 @@ export default function AvantTradePage() {
   );
   const hasDangerAlert = alerts.some((a) => a.severity === "danger");
   
-  // On valide si l'actif et le risque sont renseignés
   const isFormValid = asset && riskInput;
   const canSubmit = allRequiredChecked && isFormValid && !hasDangerAlert;
 
   // ── Soumission du trade ────────────────────────────────────────────
-  const handleSubmit = () => {
-    if (!canSubmit) return;
+  const handleSubmit = async () => {
+    if (!canSubmit || isSubmitting) return;
 
-    const newTrade: TradeSession = {
-      id: generateId(),
-      date: new Date().toISOString(),
-      asset,
-      direction,
-      entryPrice: parseFloat(entryPrice) || 0,
-      stopLoss: 0, // Inutilisé dans la nouvelle logique
-      takeProfit: 0, // Inutilisé dans la nouvelle logique
-      positionSize: 0, // Inutilisé
-      riskAmount: riskAmount,
-      riskPercent: riskPercent,
-      notes,
-      checklistCompleted: checkedItems,
-      allChecklistPassed: rules.checklistItems.every((i) =>
-        checkedItems.includes(i.id)
-      ),
-      status: "open",
-    };
+    setIsSubmitting(true);
 
-    tradesStorage.add(newTrade);
-    setLastTrade(newTrade);
-    setSubmitted(true);
+    try {
+      const payload = {
+        date: new Date().toISOString(),
+        asset,
+        direction,
+        entryPrice: parseFloat(entryPrice) || 0,
+        riskAmount: riskAmount,
+        riskPercent: riskPercent,
+        notes,
+        checklistCompleted: checkedItems,
+        allChecklistPassed: rules.checklistItems.every((i) =>
+          checkedItems.includes(i.id)
+        ),
+        status: "open", 
+      };
+
+      const res = await api.post("/trades", payload);
+      
+      setLastTrade(res.data.data); 
+      setSubmitted(true);
+      setTodayCount(prev => prev + 1);
+
+    } catch (error) {
+      console.error("Erreur lors de la création du trade:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // ── Reset du formulaire ────────────────────────────────────────────
   const handleReset = () => {
     setAsset("");
     setDirection("LONG");
@@ -173,7 +224,6 @@ export default function AvantTradePage() {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* ── En-tête ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-text-primary">Avant-Trade</h2>
@@ -195,17 +245,12 @@ export default function AvantTradePage() {
           </div>
         </div>
 
-        {/* ── Alertes globales ──────────────────────────────────────── */}
         <AlertBanner alerts={alerts} />
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* ── Colonne gauche : Formulaire du trade (3/5) ────────────── */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Actif & Direction */}
             <Card title="Identification du Trade">
               <div className="space-y-4">
-                
-                {/* Presets d'actifs */}
                 <div>
                   <label className="field-label">Actif</label>
                   <div className="flex flex-wrap gap-2 mb-2">
@@ -240,7 +285,6 @@ export default function AvantTradePage() {
                   />
                 </div>
 
-                {/* Direction */}
                 <div>
                   <label className="field-label">Direction</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -273,7 +317,6 @@ export default function AvantTradePage() {
               </div>
             </Card>
 
-            {/* ── NOUVEAU : Paramètres monétaires ── */}
             <Card title="Paramètres du Risque" subtitle="Montants indiqués par votre broker (MT4/MT5/XTB)">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -311,7 +354,6 @@ export default function AvantTradePage() {
               </div>
             </Card>
 
-            {/* Récapitulatif dynamique */}
             {(riskInput || rewardInput) && (
               <Card
                 title="Bilan du Trade"
@@ -359,7 +401,6 @@ export default function AvantTradePage() {
               </Card>
             )}
 
-            {/* Notes */}
             <Card title="Notes de Trading">
               <textarea
                 value={notes}
@@ -371,7 +412,6 @@ export default function AvantTradePage() {
             </Card>
           </div>
 
-          {/* ── Colonne droite : Checklist (2/5) ──────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
             <Card
               title="Validation du Setup"
@@ -384,10 +424,8 @@ export default function AvantTradePage() {
               />
             </Card>
 
-            {/* Bouton de validation ─────────────────────────────────── */}
             <div className="space-y-3">
-              {/* Indicateur de blocage */}
-              {!canSubmit && (
+              {!canSubmit && !isSubmitting && (
                 <div className="flex items-center gap-2 text-xs text-text-muted">
                   <ShieldAlert size={14} className={hasDangerAlert ? "text-neon-red" : "text-text-muted"} />
                   <span>
@@ -404,18 +442,23 @@ export default function AvantTradePage() {
 
               <button
                 onClick={handleSubmit}
-                disabled={!canSubmit}
+                disabled={!canSubmit || isSubmitting}
                 className={`
                   w-full flex items-center justify-center gap-3 py-4 rounded-xl font-semibold text-base
                   transition-all duration-300
                   ${
-                    canSubmit
+                    canSubmit && !isSubmitting
                       ? "bg-neon-green/10 border-2 border-neon-green/50 text-neon-green hover:bg-neon-green/20 shadow-neon-green animate-pulse-neon cursor-pointer"
                       : "bg-bg-elevated border-2 border-border text-text-muted cursor-not-allowed"
                   }
                 `.trim()}
               >
-                {canSubmit ? (
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-text-muted border-t-transparent rounded-full animate-spin" />
+                    Validation en cours...
+                  </>
+                ) : canSubmit ? (
                   <>
                     <ShieldCheck size={20} />
                     Valider le Trade

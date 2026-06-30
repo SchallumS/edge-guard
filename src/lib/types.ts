@@ -2,40 +2,47 @@
 
 // ── Utilisateur ────────────────────────────────────────────────────────────
 export interface User {
-  id: string;
+  _id?: string;                  // 💡 ID généré par MongoDB
+  id?: string;                   // Maintenu pour la compatibilité
   email: string;
   name: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 // ── Règles de discipline ────────────────────────────────────────────────────
 export interface TradingRules {
+  _id?: string;                  // 💡 ID MongoDB
+  userId?: string;               // Lien avec l'utilisateur
   maxTradesPerDay: number;       // Nb max de trades par jour
   maxRiskPerTrade: number;       // % de risque max par trade (ex: 1.5)
   maxDailyDrawdown: number;      // % de drawdown journalier max (ex: 3)
   initialCapital: number;        // Capital de départ en $
   checklistItems: ChecklistItem[]; // Étapes de la stratégie
   customAssets?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ── Étape de la check-list ─────────────────────────────────────────────────
 export interface ChecklistItem {
-  id: string;
+  id: string;                    // Gardé en 'id' normal car généré en local (generateId)
   label: string;
   isRequired: boolean;
 }
 
 // ── Session de trade (avant-trade) ────────────────────────────────────────
 export interface TradeSession {
-  id: string;
+  _id?: string;                  // 💡 ID MongoDB
+  id?: string;                   // Maintenu pour la compatibilité
+  userId?: string;               // Lien avec le trader
   date: string;                  // ISO string
   closeDate?: string;
   asset: string;                 // Ex: "BTC/USDT", "EUR/USD"
   direction: "LONG" | "SHORT";
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  positionSize: number;          // En % du capital ou en unités
+  entryPrice?: number;           // Optionnel depuis la simplification du formulaire
+  stopLoss?: number;             // Optionnel
+  takeProfit?: number;           // Optionnel
+  positionSize?: number;         // Optionnel
   riskAmount: number;            // Risque calculé en $
   riskPercent: number;           // Risque calculé en %
   notes: string;

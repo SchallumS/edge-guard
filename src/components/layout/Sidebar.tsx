@@ -11,8 +11,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  TrendingUp,
   X,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 
@@ -46,6 +46,12 @@ const NAV_ITEMS = [
     icon: BarChart3,
     desc: "Statistiques",
   },
+  {
+    href: "/abonnement",
+    label: "Mon abonnement",
+    icon: CreditCard,
+    desc: "Facturation",
+  },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
@@ -62,9 +68,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     >
       {/* ── Logo & fermeture mobile ──────────────────────────────────── */}
       <div className="flex items-center justify-between px-6 py-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          {/* Icône seule, sans le carré de fond */}
-          <TrendingUp size={24} className="text-neon-blue" />
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={28} className="text-neon-green" />
           <span className="text-text-primary font-bold text-lg tracking-wide">
             EdgeGuard
           </span>
@@ -104,11 +109,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   }`}
                 />
                 <div className="min-w-0">
-                  {/* Texte principal en blanc si actif */}
                   <p className={`text-sm font-semibold truncate ${isActive ? "text-white" : ""}`}>
                     {label}
                   </p>
-                  {/* Description masquée si on veut épuré, ou en blanc transparent si active */}
                   <p className={`text-xs mono ${isActive ? "text-white/80" : "text-text-muted"}`}>
                     {desc}
                   </p>
@@ -134,15 +137,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </nav>
 
       {/* ── Profil utilisateur ────────────────────────────────────────── */}
-      <div className="px-4 py-4 border-t border-border">
+      <div className="px-4 py-4 border-t border-border pb-6">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-neon-blue bg-opacity-20 border border-neon-blue border-opacity-30 flex items-center justify-center flex-shrink-0">
-            <span className="text-neon-blue text-sm font-bold uppercase">
+          <div className="w-9 h-9 rounded-full bg-neon-blue flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(0,112,243,0.3)]">
+            <span className="text-white text-sm font-bold uppercase">
               {user?.name?.charAt(0) || "T"}
             </span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">
+            <p className="text-sm font-medium text-text-primary truncate capitalize">
               {user?.name || "Trader"}
             </p>
             <p className="text-xs text-text-muted mono truncate">
@@ -150,9 +153,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
         </div>
+        
+        {/* 💡 CORRECTION DU SURVOL ICI */}
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-text-secondary hover:text-neon-red hover:bg-neon-red hover:bg-opacity-10 transition-all duration-200 text-sm font-medium"
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-text-secondary hover:text-neon-red hover:bg-bg-elevated transition-all duration-200 text-sm font-medium"
         >
           <LogOut size={16} />
           Déconnexion

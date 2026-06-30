@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { tradesStorage } from "@/lib/storage";
+import api from "@/lib/api"; // 💡 Import de l'API
 import { formatCurrency } from "@/lib/utils";
 
 interface TopBarProps {
@@ -27,13 +27,27 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuToggle }) => {
   const pageInfo = PAGE_TITLES[pathname] || { title: "EdgeGuard", subtitle: "Discipline Engine" };
 
   useEffect(() => {
-    // 1. Calcul du P&L GLOBAL
-    const allTrades = tradesStorage.getAll();
-    const pnlGlobal = allTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
-    setTotalPnl(pnlGlobal);
+    // 💡 Récupération des stats globales via le backend
+    const fetchTopBarStats = async () => {
+      try {
+        const res = await api.get("/trades");
+        const allTrades = res.data.data;
 
-    // 2. Compteur de trades de la journée
-    setTodayCount(tradesStorage.countToday());
+        // 1. Calcul du P&L GLOBAL
+        const pnlGlobal = allTrades.reduce((sum: number, trade: any) => sum + (trade.pnl || 0), 0);
+        setTotalPnl(pnlGlobal);
+
+        // 2. Compteur de trades de la journée
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const count = allTrades.filter((t: any) => new Date(t.date) >= today).length;
+        setTodayCount(count);
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de la TopBar :", error);
+      }
+    };
+
+    fetchTopBarStats();
   }, [pathname]); // Se rafraîchit à chaque changement de page
 
   return (

@@ -10,17 +10,34 @@ import {
   WinRateChart,
   AssetDistributionChart,
 } from "@/components/features/EquityCurve";
-import { rulesStorage, tradesStorage } from "@/lib/storage";
+import api from "@/lib/api"; // 💡 Import de notre client API
 import { computeStats, formatCurrency, formatPercent } from "@/lib/utils";
 import { TradingStats } from "@/lib/types";
 
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<TradingStats | null>(null);
 
+  // 💡 Récupération des données depuis le backend
   useEffect(() => {
-    const rules = rulesStorage.get();
-    const trades = tradesStorage.getAll();
-    setStats(computeStats(trades, rules.initialCapital));
+    const fetchAnalyticsData = async () => {
+      try {
+        // On lance les deux requêtes en parallèle pour aller plus vite
+        const [rulesRes, tradesRes] = await Promise.all([
+          api.get("/rules"),
+          api.get("/trades")
+        ]);
+
+        const rules = rulesRes.data.data;
+        const trades = tradesRes.data.data;
+
+        // On réutilise ta fonction utilitaire qui marche parfaitement
+        setStats(computeStats(trades, rules.initialCapital));
+      } catch (error) {
+        console.error("Erreur lors du chargement des analyses:", error);
+      }
+    };
+
+    fetchAnalyticsData();
   }, []);
 
   if (!stats) {

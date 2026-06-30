@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "../types";
-import { authStorage } from "../storage";
+import api from "../api"; // 💡 Ajuste le chemin vers ton fichier api.ts si nécessaire (ex: "@/lib/api")
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,71 +12,83 @@ export function useAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    // Vérifier la session au montage
-    const storedUser = authStorage.getUser();
-    const isAuth = authStorage.isAuthenticated();
-    if (isAuth && storedUser) {
-      setUser(storedUser);
+    // 💡 Vérifier la session dans le localStorage au montage
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("user");
+      const token = localStorage.getItem("accessToken");
+
+      if (token && storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error("Erreur de parsing de l'utilisateur", e);
+        }
+      }
     }
     setLoading(false);
   }, []);
 
+  // 💡 Les fonctions deviennent "async" pour attendre la réponse de l'API
   const login = useCallback(
-    (email: string, password: string): { success: boolean; error?: string } => {
-      const loggedUser = authStorage.login(email, password);
-      if (loggedUser) {
-        setUser(loggedUser);
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const res = await api.post("/auth/login", { email, password });
+        const { accessToken, refreshToken, user } = res.data.data;
+
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("user", JSON.stringify(user));
+
+        setUser(user);
         router.push("/dashboard");
         return { success: true };
+      } catch (error: any) {
+        return { 
+          success: false, 
+          error: error.response?.data?.message || "Email ou mot de passe incorrect." 
+        };
       }
-      return { success: false, error: "Email ou mot de passe incorrect." };
     },
     [router]
   );
 
   const register = useCallback(
-    (
-      name: string,
-      email: string,
-      password: string
-    ): { success: boolean; error?: string } => {
-      // Sécurisation SSR pour éviter le crash côté serveur
-      if (typeof window === "undefined") {
-        return { success: false, error: "Erreur d'environnement." };
-      }
+    async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const res = await api.post("/auth/register", { name, email, password });
+        const { accessToken, refreshToken, user } = res.data.data;
 
-      // Vérifier si l'email existe déjà dans la base locale
-      const users = JSON.parse(
-        localStorage.getItem("tj_users_db") || "{}"
-      ) as Record<string, unknown>;
-      
-      if (users[email]) {
-        return { success: false, error: "Cet email est déjà utilisé." };
-      }
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("user", JSON.stringify(user));
 
-      const newUser: User = {
-        id: `user_${Date.now()}`,
-        email,
-        name,
-        createdAt: new Date().toISOString(),
-      };
-      
-      authStorage.register(newUser, password);
-      
-      // Connecter directement après inscription
-      authStorage.login(email, password);
-      setUser(newUser);
-      router.push("/dashboard");
-      return { success: true };
+        setUser(user);
+        router.push("/dashboard");
+        return { success: true };
+      } catch (error: any) {
+        return { 
+          success: false, 
+          error: error.response?.data?.message || "Erreur lors de l'inscription." 
+        };
+      }
     },
     [router]
   );
 
-  const logout = useCallback(() => {
-    authStorage.logout();
-    setUser(null);
-    // Assure-toi que la route correspond bien à ta page de login (ex: "/login" ou "/")
-    router.push("/login"); 
+  const logout = useCallback(async () => {
+    try {
+      // 💡 On prévient le backend de révoquer le Refresh Token pour sécuriser le compte
+      await api.post("/auth/logout");
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion API", error);
+    } finally {
+      // Quoi qu'il arrive, on nettoie le navigateur
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      setUser(null);
+      router.push("/login"); 
+    }
   }, [router]);
 
   return { user, loading, login, register, logout };

@@ -2,12 +2,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, TrendingUp, ArrowRight, Lock, Mail, User } from "lucide-react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { Eye, EyeOff, ShieldCheck, ArrowRight, Lock, Mail, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { authStorage } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import api from "@/lib/api"; // 💡 Ajout de l'instance Axios
 
 type AuthMode = "login" | "register";
 
@@ -21,12 +20,12 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   
-  const { login, register } = useAuth();
   const router = useRouter();
 
-  // Rediriger si déjà connecté
+  // 💡 Rediriger si déjà connecté (vérification du vrai token)
   useEffect(() => {
-    if (authStorage.isAuthenticated()) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (token) {
       router.replace("/dashboard");
     }
   }, [router]);
@@ -38,20 +37,40 @@ export default function AuthPage() {
 
     try {
       if (mode === "login") {
-        const result = login(email, password);
-        if (!result.success) setError("L'email ou le mot de passe est incorrect.");
+        // 💡 Vraie requête de connexion
+        const res = await api.post("/auth/login", { email, password });
+        const { accessToken, refreshToken, user } = res.data.data;
+        
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("user", JSON.stringify(user));
+        
+        router.replace("/dashboard");
       } else {
         if (password !== confirmPassword) {
           setError("Les mots de passe ne correspondent pas.");
+          setLoading(false);
           return;
         }
         if (password.length < 6) {
           setError("Le mot de passe doit contenir au moins 6 caractères.");
+          setLoading(false);
           return;
         }
-        const result = register(name, email, password);
-        if (!result.success) setError(result.error || "Erreur lors de l'inscription.");
+        
+        // 💡 Vraie requête d'inscription
+        const res = await api.post("/auth/register", { name, email, password });
+        const { accessToken, refreshToken, user } = res.data.data;
+        
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("user", JSON.stringify(user));
+        
+        router.replace("/dashboard");
       }
+    } catch (err: any) {
+      // 💡 Récupération du message d'erreur précis renvoyé par le backend
+      setError(err.response?.data?.message || "Une erreur est survenue de notre côté.");
     } finally {
       setLoading(false);
     }
@@ -78,12 +97,10 @@ export default function AuthPage() {
           }}
         />
 
-        {/* Logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 bg-neon-blue/20 border border-neon-blue/40 rounded-xl flex items-center justify-center">
-            <TrendingUp size={20} className="text-neon-blue" />
-          </div>
-          <span className="text-text-primary font-bold text-lg tracking-wider">EdgeGuard</span>
+        {/* Logo (Version mise à jour avec le bouclier vert) */}
+        <div className="relative flex items-center gap-2">
+          <ShieldCheck className="text-neon-green" size={28} />
+          <span className="text-text-primary font-bold text-xl tracking-tight">EdgeGuard</span>
         </div>
 
         {/* Citation centrale */}
@@ -116,12 +133,10 @@ export default function AuthPage() {
       {/* ── Panneau droit — Formulaire ───────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
-          {/* En-tête mobile */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-9 h-9 bg-neon-blue/20 border border-neon-blue/40 rounded-lg flex items-center justify-center">
-              <TrendingUp size={18} className="text-neon-blue" />
-            </div>
-            <span className="text-text-primary font-bold tracking-wider">EdgeGuard</span>
+          {/* En-tête mobile (Version mise à jour avec le bouclier vert) */}
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <ShieldCheck className="text-neon-green" size={24} />
+            <span className="text-text-primary font-bold text-lg tracking-tight">EdgeGuard</span>
           </div>
 
           {/* Titre */}
@@ -244,12 +259,12 @@ export default function AuthPage() {
             </p>
           </div>
 
-          {/* Badge d'information Premium & Ultra-Lisible */}
+          {/* Badge d'information Premium & Ultra-Lisible (Mis à jour pour le backend) */}
           <div className="p-4 bg-bg-elevated border border-border/60 rounded-xl flex items-start gap-3 shadow-inner animate-fade-in">
             <div className="live-dot mt-1 flex-shrink-0" />
             <p className="text-xs text-text-secondary leading-relaxed font-medium">
-              <span className="text-text-primary font-semibold">Mode Local Chiffré</span> — 
-              Pour garantir votre confidentialité, toutes vos données de trading sont exclusivement conservées dans ce navigateur. Aucun serveur externe requis.
+              <span className="text-text-primary font-semibold">Connexion Cloud Sécurisée</span> — 
+              Vos données sont protégées par JWT et synchronisées avec nos serveurs. Gardez le contrôle total sur votre discipline.
             </p>
           </div>
 

@@ -16,30 +16,63 @@ import Link from "next/link";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card } from "@/components/ui/Card";
 import { RulesForm } from "@/components/features/RulesForm";
-import { rulesStorage, tradesStorage } from "@/lib/storage";
+import api from "@/lib/api"; // 💡 Import du client API
 import { computeStats, formatCurrency, formatPercent } from "@/lib/utils";
 import { TradingRules, TradingStats } from "@/lib/types";
 
 export default function DashboardPage() {
-  const [rules, setRules] = useState<TradingRules>(rulesStorage.getDefaults());
+  const [rules, setRules] = useState<TradingRules | null>(null);
   const [stats, setStats] = useState<TradingStats | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "config">("overview");
+  const [isLoading, setIsLoading] = useState(true);
+  const [todayCount, setTodayCount] = useState(0);
 
-  useEffect(() => {
-    const loadedRules = rulesStorage.get();
-    setRules(loadedRules);
-    const trades = tradesStorage.getAll();
-    setStats(computeStats(trades, loadedRules.initialCapital));
-  }, []);
+  // 💡 Fonction de récupération centralisée
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [rulesRes, tradesRes] = await Promise.all([
+        api.get("/rules"),
+        api.get("/trades")
+      ]);
 
-  const handleRulesSave = () => {
-    const newRules = rulesStorage.get();
-    setRules(newRules);
-    const trades = tradesStorage.getAll();
-    setStats(computeStats(trades, newRules.initialCapital));
+      const loadedRules = rulesRes.data.data;
+      const trades = tradesRes.data.data;
+
+      setRules(loadedRules);
+      setStats(computeStats(trades, loadedRules.initialCapital));
+
+      // Calcul du nombre de trades aujourd'hui
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const count = trades.filter((t: any) => new Date(t.date) >= today).length;
+      setTodayCount(count);
+
+    } catch (error) {
+      console.error("Erreur lors du chargement du dashboard:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const todayCount = tradesStorage.countToday();
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // 💡 Quand le formulaire de règles est sauvegardé, on rafraîchit les données
+  const handleRulesSave = () => {
+    fetchData();
+  };
+
+  if (isLoading || !rules) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-64">
+          <div className="w-8 h-8 border-2 border-neon-blue border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   // Cartes de statuts clés
   const statCards = stats
@@ -156,7 +189,7 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-4">
             
-            {/* Raccourcis vers les modules (Correction Tailwind v4 appliquée) */}
+            {/* Raccourcis vers les modules */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 {
@@ -166,7 +199,7 @@ export default function DashboardPage() {
                   desc: "Valider un nouveau setup",
                   color: "text-neon-blue",
                   borderColor: "border-neon-blue",
-                  bg: "bg-neon-blue/10", // Syntaxe corrigée
+                  bg: "bg-neon-blue/10",
                 },
                 {
                   href: "/calendar",
@@ -175,7 +208,7 @@ export default function DashboardPage() {
                   desc: "Voir la performance",
                   color: "text-neon-green",
                   borderColor: "border-neon-green",
-                  bg: "bg-neon-green/10", // Syntaxe corrigée
+                  bg: "bg-neon-green/10",
                 },
                 {
                   href: "/analytics",
@@ -184,7 +217,7 @@ export default function DashboardPage() {
                   desc: "Graphiques & Stats",
                   color: "text-neon-yellow",
                   borderColor: "border-neon-yellow",
-                  bg: "bg-neon-yellow/10", // Syntaxe corrigée
+                  bg: "bg-neon-yellow/10",
                 },
               ].map(({ href, icon: Icon, title, desc, color, borderColor, bg }) => (
                 <Link
@@ -252,7 +285,6 @@ export default function DashboardPage() {
                     className="bg-bg-elevated border border-border rounded-lg p-3"
                   >
                     <p className="text-xs text-text-muted mb-1.5">{label}</p>
-                    {/* Badge premium fait main */}
                     <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold mono border ${style}`}>
                       {value}
                     </div>

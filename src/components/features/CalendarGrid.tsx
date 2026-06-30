@@ -231,27 +231,6 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         {/* Jours du mois */}
         {daysInMonth.map((date) => renderDay(date))}
       </div>
-
-      {/* ── Légende ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-4 flex-wrap pt-4">
-        {[
-          { color: "border-neon-green/40 bg-neon-green/10", label: "Gain" },
-          { color: "border-neon-red/40 bg-neon-red/10", label: "Perte" },
-          { color: "border-neon-blue/30 bg-neon-blue/5 border-dashed", label: "En cours" },
-          { color: "border-border/50 bg-transparent", label: "Sans trade" },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className={`w-4 h-4 rounded border ${color}`} />
-            <span className="text-xs text-text-muted">{label}</span>
-          </div>
-        ))}
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-neon-green flex items-center justify-center shadow-neon-green">
-            <CheckCheck size={8} className="text-bg-primary" />
-          </div>
-          <span className="text-xs text-text-muted">Discipline ✓</span>
-        </div>
-      </div>
     </div>
   );
 };

@@ -4,8 +4,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, GripVertical, Save, RotateCcw, X } from "lucide-react";
 import { TradingRules, ChecklistItem } from "@/lib/types";
-import { rulesStorage } from "@/lib/storage";
 import { generateId } from "@/lib/utils";
+import api from "@/lib/api"; // 💡 Import du client API
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -14,95 +14,139 @@ interface RulesFormProps {
   onSave?: () => void;
 }
 
-export const RulesForm: React.FC<RulesFormProps> = ({ onSave }) => {
-  const [rules, setRules] = useState<TradingRules>(rulesStorage.getDefaults());
-  const [newCheckItem, setNewCheckItem] = useState("");
-  const [newAsset, setNewAsset] = useState(""); // Nouvel état pour les actifs
-  const [saved, setSaved] = useState(false);
+// 💡 Modèle par défaut en cas de réinitialisation
+const DEFAULT_RULES: Partial<TradingRules> = {
+  maxTradesPerDay: 3,
+  maxRiskPerTrade: 1,
+  maxDailyDrawdown: 3,
+  initialCapital: 10000,
+  checklistItems: [],
+  customAssets: [],
+};
 
-  // Charger les règles existantes
+export const RulesForm: React.FC<RulesFormProps> = ({ onSave }) => {
+  const [rules, setRules] = useState<TradingRules | null>(null);
+  const [newCheckItem, setNewCheckItem] = useState("");
+  const [newAsset, setNewAsset] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 💡 Charger les règles depuis le backend
   useEffect(() => {
-    setRules(rulesStorage.get());
+    const fetchRules = async () => {
+      try {
+        const res = await api.get("/rules");
+        setRules(res.data.data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des règles:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRules();
   }, []);
 
   // ── Mise à jour des champs numériques ─────────────────────────────────
   const handleNumericChange = (
-    field: keyof Omit<TradingRules, "checklistItems" | "customAssets">,
+    field: keyof Omit<TradingRules, "checklistItems" | "customAssets" | "userId" | "_id" | "createdAt">,
     value: string
   ) => {
+    if (!rules) return;
     const num = parseFloat(value) || 0;
-    setRules((prev) => ({ ...prev, [field]: num }));
+    setRules((prev) => prev ? ({ ...prev, [field]: num }) : prev);
   };
 
   // ── Gestion des Actifs personnalisés ───────────────────────────────────
   const addAsset = () => {
+    if (!rules) return;
     const asset = newAsset.trim().toUpperCase();
     if (!asset) return;
     
     const currentAssets = rules.customAssets || [];
     if (!currentAssets.includes(asset)) {
-      setRules((prev) => ({
+      setRules((prev) => prev ? ({
         ...prev,
         customAssets: [...(prev.customAssets || []), asset],
-      }));
+      }) : prev);
     }
     setNewAsset("");
   };
 
   const removeAsset = (assetToRemove: string) => {
-    setRules((prev) => ({
+    if (!rules) return;
+    setRules((prev) => prev ? ({
       ...prev,
       customAssets: (prev.customAssets || []).filter((a) => a !== assetToRemove),
-    }));
+    }) : prev);
   };
 
   // ── Gestion de la checklist ────────────────────────────────────────────
   const addCheckItem = () => {
-    if (!newCheckItem.trim()) return;
+    if (!rules || !newCheckItem.trim()) return;
     const item: ChecklistItem = {
       id: generateId(),
       label: newCheckItem.trim(),
       isRequired: true,
     };
-    setRules((prev) => ({
+    setRules((prev) => prev ? ({
       ...prev,
       checklistItems: [...prev.checklistItems, item],
-    }));
+    }) : prev);
     setNewCheckItem("");
   };
 
   const removeCheckItem = (id: string) => {
-    setRules((prev) => ({
+    if (!rules) return;
+    setRules((prev) => prev ? ({
       ...prev,
       checklistItems: prev.checklistItems.filter((item) => item.id !== id),
-    }));
+    }) : prev);
   };
 
   const toggleRequired = (id: string) => {
-    setRules((prev) => ({
+    if (!rules) return;
+    setRules((prev) => prev ? ({
       ...prev,
       checklistItems: prev.checklistItems.map((item) =>
         item.id === id ? { ...item, isRequired: !item.isRequired } : item
       ),
-    }));
+    }) : prev);
   };
 
-  // ── Sauvegarde ────────────────────────────────────────────────────────
-  const handleSave = () => {
-    rulesStorage.save(rules);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    onSave?.();
+  // ── Sauvegarde en base de données ─────────────────────────────────────
+  const handleSave = async () => {
+    if (!rules || isSaving) return;
+    setIsSaving(true);
+    
+    try {
+      await api.put("/rules", rules);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSave?.();
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des règles:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // ── Reset aux valeurs par défaut ──────────────────────────────────────
+  // ── Reset aux valeurs par défaut (localement, avant sauvegarde) ───────
   const handleReset = () => {
-    const defaults = rulesStorage.getDefaults();
-    setRules(defaults);
+    if (!rules) return;
+    setRules((prev) => prev ? { ...prev, ...DEFAULT_RULES } as TradingRules : prev);
   };
+
+  if (isLoading || !rules) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-2 border-neon-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* ── Règles quantitatives ────────────────────────────────────── */}
       <Card title="Règles de Discipline" subtitle="Limites quantitatives journalières">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,7 +215,7 @@ export const RulesForm: React.FC<RulesFormProps> = ({ onSave }) => {
         </div>
       </Card>
 
-      {/* ── Liste des Actifs (NOUVEAU) ────────────────────────────────── */}
+      {/* ── Liste des Actifs ────────────────────────────────── */}
       <Card
         title="Paires de Trading & Actifs"
         subtitle="Définissez vos instruments favoris (Forex, Indices, Crypto...)"
@@ -305,13 +349,15 @@ export const RulesForm: React.FC<RulesFormProps> = ({ onSave }) => {
           variant="ghost"
           onClick={handleReset}
           leftIcon={<RotateCcw size={14} />}
+          disabled={isSaving}
         >
           Réinitialiser
         </Button>
         <Button
           variant={saved ? "neon-green" : "primary"}
           onClick={handleSave}
-          leftIcon={<Save size={16} />}
+          leftIcon={isSaving ? undefined : <Save size={16} />}
+          loading={isSaving}
         >
           {saved ? "✓ Sauvegardé !" : "Sauvegarder les règles"}
         </Button>

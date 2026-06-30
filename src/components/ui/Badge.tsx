@@ -11,11 +11,12 @@ interface BadgeProps {
   className?: string;
 }
 
+// 💡 CORRECTION : Utilisation de la nouvelle syntaxe Tailwind (/10 et /30)
 const variantStyles: Record<BadgeVariant, string> = {
-  green: "bg-neon-green bg-opacity-10 text-neon-green border border-neon-green border-opacity-30",
-  red: "bg-neon-red bg-opacity-10 text-neon-red border border-neon-red border-opacity-30",
-  blue: "bg-border-glow bg-opacity-10 text-border-glow border border-border-glow border-opacity-30",
-  yellow: "bg-neon-yellow bg-opacity-10 text-neon-yellow border border-neon-yellow border-opacity-30",
+  green: "bg-neon-green/10 text-neon-green border border-neon-green/30",
+  red: "bg-neon-red/10 text-neon-red border border-neon-red/30",
+  blue: "bg-border-glow/10 text-border-glow border border-border-glow/30",
+  yellow: "bg-neon-yellow/10 text-neon-yellow border border-neon-yellow/30",
   gray: "bg-bg-elevated text-text-secondary border border-border",
   ghost: "text-text-muted",
 };

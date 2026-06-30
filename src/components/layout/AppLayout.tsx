@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { authStorage } from "@/lib/storage";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -19,9 +18,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     setMounted(true);
-    // Guard d'authentification
-    if (!authStorage.isAuthenticated()) {
-      // ⚠️ Vérifie que la route est bien "/auth" (ou modifie-la en "/login" selon ton dossier)
+    // 💡 Guard d'authentification connecté au Cloud
+    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+    if (!token) {
       router.replace("/login");
     }
   }, [router]);
