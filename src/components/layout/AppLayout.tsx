@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { SubscriptionGuard } from "@/components/auth/SubscriptionGuard"; // 💡 IMPORT DU GUARD
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -18,12 +19,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     setMounted(true);
-    // 💡 Guard d'authentification connecté au Cloud
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) {
-      router.replace("/login");
-    }
-  }, [router]);
+    // 🗑️ SUPPRESSION DE LA VÉRIFICATION LOCALSTORAGE : 
+    // La redirection vers /login est maintenant gérée intelligemment 
+    // par l'intercepteur Axios (api.ts) grâce aux cookies HttpOnly.
+  }, []);
 
   // Fermer la sidebar lors d'un changement de route (mobile)
   useEffect(() => {
@@ -37,6 +36,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       </div>
     );
   }
+
+  // 💡 On identifie si l'utilisateur est sur la page de paiement
+  const isAbonnementPage = pathname === "/abonnement";
 
   return (
     <div className="min-h-screen bg-bg-primary flex">
@@ -56,13 +58,20 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       />
 
       {/* Contenu principal */}
-      <div className="flex-1 flex flex-col min-h-screen lg:ml-64 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-64 overflow-hidden relative">
         {/* Barre du haut */}
         <TopBar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
 
         {/* Contenu de la page */}
-        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 animate-fade-in">
-          {children}
+        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 animate-fade-in relative">
+          {/* 💡 INJECTION DU VERROUILLAGE D'ABONNEMENT */}
+          {isAbonnementPage ? (
+            children // On laisse l'accès libre à la page de paiement
+          ) : (
+            <SubscriptionGuard>
+              {children}
+            </SubscriptionGuard>
+          )}
         </main>
       </div>
     </div>

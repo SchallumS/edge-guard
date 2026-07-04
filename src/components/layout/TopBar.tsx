@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
-import api from "@/lib/api"; // 💡 Import de l'API
+import api from "@/lib/api"; 
 import { formatCurrency } from "@/lib/utils";
 
 interface TopBarProps {
@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/avant-trade": { title: "Avant-Trade", subtitle: "Garde-fou — Validation de setup" },
   "/calendar": { title: "Calendrier", subtitle: "Historique de performance" },
   "/analytics": { title: "Analyses", subtitle: "Statistiques & Graphiques" },
+  "/abonnement": { title: "Abonnement", subtitle: "Gestion de votre forfait" }, // 💡 Petit oubli ajouté !
 };
 
 export const TopBar: React.FC<TopBarProps> = ({ onMenuToggle }) => {
@@ -27,20 +28,20 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuToggle }) => {
   const pageInfo = PAGE_TITLES[pathname] || { title: "EdgeGuard", subtitle: "Discipline Engine" };
 
   useEffect(() => {
-    // 💡 Récupération des stats globales via le backend
     const fetchTopBarStats = async () => {
       try {
-        const res = await api.get("/trades");
+        // 💡 AJOUT : ?limit=5000 pour être certain de récupérer tout l'historique
+        // et avoir un VRAI P&L Global, même après des mois de trading.
+        const res = await api.get("/trades?limit=5000");
         const allTrades = res.data.data;
 
         // 1. Calcul du P&L GLOBAL
         const pnlGlobal = allTrades.reduce((sum: number, trade: any) => sum + (trade.pnl || 0), 0);
         setTotalPnl(pnlGlobal);
 
-        // 2. Compteur de trades de la journée
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const count = allTrades.filter((t: any) => new Date(t.date) >= today).length;
+        // 2. Compteur de trades de la journée (Vérification robuste)
+        const todayStr = new Date().toDateString();
+        const count = allTrades.filter((t: any) => new Date(t.date).toDateString() === todayStr).length;
         setTodayCount(count);
       } catch (error) {
         console.error("Erreur lors de la mise à jour de la TopBar :", error);
@@ -48,7 +49,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuToggle }) => {
     };
 
     fetchTopBarStats();
-  }, [pathname]); // Se rafraîchit à chaque changement de page
+  }, [pathname]); 
 
   return (
     <header className="sticky top-0 z-10 bg-bg-card border-b border-border px-4 md:px-6 py-3 flex items-center justify-between gap-4">
