@@ -1,7 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // En-têtes pour les métadonnées PWA et sécurité
+  // 1. Le Proxy magique pour éviter les blocages de cookies (CORS)
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://edge-guard-backend.onrender.com/api/:path*', // Redirige vers ton Render
+      },
+    ];
+  },
+
+  // 2. Tes En-têtes pour les métadonnées PWA et sécurité (inchangés)
   async headers() {
     return [
       {

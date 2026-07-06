@@ -3,8 +3,8 @@ import axios from "axios";
 
 // 1. Création de l'instance de base
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
-  withCredentials: true, // 💡 Indispensable pour envoyer automatiquement les cookies HttpOnly
+  baseURL: "/api", // 💡 MODIFICATION 1 : On passe par le tunnel Vercel
+  withCredentials: true, 
   headers: {
     "Content-Type": "application/json",
   },
@@ -25,9 +25,9 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Appel direct à axios (sans l'instance 'api') pour rafraîchir
+        // Appel direct à axios pour rafraîchir
         await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/auth/refresh`,
+          "/api/auth/refresh", // 💡 MODIFICATION 2 : On passe aussi par le tunnel Vercel ici
           {}, 
           { withCredentials: true } 
         );
@@ -38,7 +38,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Si le refresh token est mort ou révoqué, déconnexion forcée et nettoyage global
         if (typeof window !== "undefined") {
-          localStorage.clear(); // Supprime le cache local ("user", etc.) qui trompe le frontend
+          localStorage.clear(); // Supprime le cache local ("user", etc.)
           window.location.href = "/login"; 
         }
         return Promise.reject(refreshError);
@@ -46,8 +46,6 @@ api.interceptors.response.use(
     }
 
     // 💡 CAS B : SÉCURITÉ ANTI-BOUCLE (Ajout indispensable pour le déploiement)
-    // Si on reçoit un 401 classique (cookie absent, session supprimée côté serveur, etc.)
-    // et qu'on n'est pas déjà sur la page de connexion, on force le nettoyage.
     if (
       error.response?.status === 401 && 
       typeof window !== "undefined" && 
